@@ -728,7 +728,7 @@ const ASES_DEF=[
  {n:"Noelia Reyes", cargo:"Customer Success", e:"", tel:"", admin:true},
  {n:"Ricardo Castro Lechtaler", cargo:"Managing Director · Legamaster LATAM", e:"", tel:""},
 ];
-const LS_ASE="cotiz_lega_asesores_v4", LS_SEL="cotiz_lega_kamsel_v1";
+const LS_ASE="cotiz_lega_asesores_v5", LS_SEL="cotiz_lega_kamsel_v1";
 
 /* ============ ESTADO ============ */
 const LS_CAT="cotiz_lega_catalogo_v3", LS_STATE="cotiz_lega_estado_v1", LS_VIG="cotiz_lega_vig_v1", LS_DOLAR="cotiz_lega_dolar_v1";
@@ -736,6 +736,10 @@ const LS_COP="cotiz_lega_cop_v1", LS_PAIS="cotiz_lega_pais_v1", LS_MONEDA="cotiz
 let CATALOGO = load(LS_CAT) || clone(CAT_DEF);
 CATALOGO = CATALOGO.filter(c=>!/proyector/i.test(c.cat)&&!/proyector/i.test(c.nombre)); // proyectores discontinuados
 let ASESORES = load(LS_ASE) || clone(ASES_DEF);
+// Blindaje: re-aplica el flag admin desde los valores por defecto por nombre,
+// aunque el navegador tenga una lista vieja guardada sin ese permiso.
+ASES_DEF.forEach(d=>{ if(d.admin){ const m=ASESORES.find(a=>a.n===d.n); if(m) m.admin=true; } });
+if(!ASESORES.some(a=>a.admin)){ const nx=ASESORES.find(a=>/noelia/i.test(a.n||"")); if(nx)nx.admin=true; else ASESORES=clone(ASES_DEF); }
 let VIG = localStorage.getItem(LS_VIG) || VIG_DEF;
 let DOLAR = +localStorage.getItem(LS_DOLAR) || DOLAR_DEF;
 let COP = +localStorage.getItem(LS_COP) || COP_DEF;
