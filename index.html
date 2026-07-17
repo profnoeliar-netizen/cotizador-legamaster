@@ -434,6 +434,7 @@ table{width:100%;border-collapse:collapse}
       </div>
       <div class="field"><label>Institución / Cliente</label><input id="f_inst" placeholder="Colegio ..." oninput="save()"></div>
       <div class="field"><label>CUIT del colegio</label><input id="f_cuit" placeholder="30-12345678-9" oninput="save()"></div>
+      <div class="field"><label>ID SAP <span class="muted">(del Excel)</span></label><input id="f_idsap" placeholder="Ej: 2027667062" oninput="save()"></div>
       <div class="field"><label>Persona de contacto</label><input id="f_cont" placeholder="Nombre y apellido" oninput="save()"></div>
       <div class="field"><label>Localidad</label><input id="f_loc" placeholder="Ciudad / Provincia" oninput="save()"></div>
       <div class="field"><label>Fecha</label><input id="f_fecha" type="date" oninput="save()"></div>
@@ -1023,7 +1024,7 @@ function render(){
 /* ============ DOCUMENTO / PDF ============ */
 function val(id){return (document.getElementById(id)||{}).value||"";}
 function renderDoc(t){
-  const inst=val("f_inst")||"—", cuit=val("f_cuit"), cont=val("f_cont"), loc=val("f_loc"),
+  const inst=val("f_inst")||"—", cuit=val("f_cuit"), idsap=val("f_idsap"), cont=val("f_cont"), loc=val("f_loc"),
         fecha=val("f_fecha"), valid=val("f_valid")||"15",
         kam=kamActual(), ase=(window.__impFirmante||kam.n), aseCargo=(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kam.cargo), aseMail=(window.__impFirmante?"":kam.e), aseTel=(window.__impFirmante?"":kam.tel),
         alum=Math.max(1,+val("f_alum")||1);
@@ -1047,6 +1048,7 @@ function renderDoc(t){
     <div class="pinfo">
       <div><div class="k">Institución</div>${inst}</div>
       <div><div class="k">CUIT</div>${cuit||"—"}</div>
+      ${idsap?`<div><div class="k">ID SAP</div>${idsap}</div>`:``}
       <div><div class="k">Contacto</div>${cont||"—"}</div>
       <div><div class="k">Localidad</div>${loc||"—"}</div>
       <div><div class="k">KAM / Asesor</div>${ase||"—"}${aseMail?' · '+aseMail:''}</div>
@@ -1486,7 +1488,7 @@ function presEmpresasHTML(){
 /* ============ PERSISTENCIA / DATOS ============ */
 function save(){
   localStorage.setItem(LS_STATE, JSON.stringify({items,
-    f:{inst:val("f_inst"),cuit:val("f_cuit"),cont:val("f_cont"),loc:val("f_loc"),fecha:val("f_fecha"),valid:val("f_valid"),alum:val("f_alum"),desc:val("f_desc"),obs:val("f_obs"),capac:val("f_capac")},
+    f:{inst:val("f_inst"),cuit:val("f_cuit"),idsap:val("f_idsap"),cont:val("f_cont"),loc:val("f_loc"),fecha:val("f_fecha"),valid:val("f_valid"),alum:val("f_alum"),desc:val("f_desc"),obs:val("f_obs"),capac:val("f_capac")},
     pres:document.getElementById("swPres").checked,
     trad:(document.getElementById("swTrad")||{}).checked,
     tipoPres:(document.getElementById("tipoPres")||{}).value,
@@ -1918,7 +1920,7 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
      una etiqueta en la col 0 ("Cliente:", "Vendedor:", ...) y el valor en la col 1.
      Devuelve {cliente,vendedor,fecha,referencia,observacion,domicilio,cuit}  */
   function parseCabecera(rows, hr, rowsRaw){
-    var cab={cliente:'',vendedor:'',fecha:'',referencia:'',observacion:'',domicilio:'',destinatario:'',cuit:''};
+    var cab={cliente:'',vendedor:'',fecha:'',referencia:'',observacion:'',domicilio:'',destinatario:'',cuit:'',idsap:''};
     var lim = hr>0 ? hr : Math.min(rows.length, 30);
     // valor (texto): primera celda no vacía a la derecha de la etiqueta
     function val(row, from){
@@ -1951,6 +1953,7 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
       }
       else if(!cab.referencia && lab.indexOf('referencia')>=0) cab.referencia=v;
       else if(!cab.observacion && lab.indexOf('observacion')>=0) cab.observacion=v;
+      else if(!cab.idsap && (lab.indexOf('id sap')>=0 || lab.indexOf('idsap')>=0)) cab.idsap=v;
       else if(!cab.destinatario && lab.indexOf('destinatario')>=0) cab.destinatario=v; // persona que recibe
       else if(!cab.domicilio && lab.indexOf('domicilio')>=0) cab.domicilio=v; // toma el primero (Solicitante)
       // CUIT/CUIL: sólo si trae dígitos de verdad (mín. 8 números)
@@ -2016,6 +2019,7 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
     if(cab.referencia && (''+cab.referencia).trim()) obsPartes.push((''+cab.referencia).trim());
     if(obsPartes.length) setTxt('f_obs', obsPartes.join(' · '));
     if(cab.cuit) setTxt('f_cuit', (''+cab.cuit).trim());       // sólo viene si es un CUIT real
+    if(cab.idsap) setTxt('f_idsap', (''+cab.idsap).trim());    // ID SAP tal cual lo manda el Excel
     // firma: que firme el vendedor del Excel (override sobre el KAM del cotizador)
     if(cab.vendedor && cab.vendedor.trim()){
       window.__impFirmante = cab.vendedor.trim();
