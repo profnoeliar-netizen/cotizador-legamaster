@@ -1814,297 +1814,175 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
 
 <script>
 /* =========================================================
-   IMPORTADOR DE EXCEL (reporte SAP) para el Cotizador Legamaster
+   IMPORTADOR DE EXCEL para el Cotizador Legamaster
    Autocontenido. Se pega ANTES de </body> en index.html (mismo origen).
    - Agrega botón "📥 Cargar Excel" cerca del Punto 1
-   - Lee el reporte SAP (.xlsx) con SheetJS (lazy CDN)
-   - Saca datos del cliente + productos, matchea contra el catálogo
-   - Muestra PANTALLA DE REVISIÓN (cada línea + producto detectado +
-     confianza) para que Noe confirme/corrija antes de cargar
-   - Al confirmar: escribe estado (cliente + items) y redibuja
+   - Lee el Excel (.xlsx/.xls) con SheetJS (lazy CDN)
+   - Carga los productos y valores del Excel en el propio carrito del
+     cotizador y dispara render(): la presentación se exporta EXACTAMENTE
+     igual que siempre (todas las hojas + la última con el presupuesto),
+     sólo que los datos salen del Excel.
+   - NO usa el tarifario: el precio de cada renglón viene del Excel.
    ============================================================ */
 (function(){
   'use strict';
-  var LS_CAT = 'cotiz_lega_catalogo_v3';
-  var LS_EST = 'cotiz_lega_estado_v1';
   var SHEET_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 
-  /* ---------- helpers puros (mismo algoritmo que cotz_import.js) ---------- */
+  /* ---------- helpers ---------- */
   function norm(s){
     return (s==null?'':s).toString().toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g,'')
-      .replace(/["'()]/g,' ').replace(/\s+/g,' ').trim();
+      .replace(/\s+/g,' ').trim();
   }
-  function tokens(s){
-    return norm(s).split(/[\s\-\/.,]+/).filter(function(w){ return w.length>1; });
+  // parsea un número en formato argentino: "7.655.930" -> 7655930 ; "1.234,50" -> 1234.5
+  function parseNumAR(s){
+    s=(s==null?'':(''+s)).replace(/[^\d.,-]/g,'').trim();
+    if(!s) return 0;
+    if(s.indexOf(',')>=0){ s=s.replace(/\./g,'').replace(',', '.'); }
+    else { s=s.replace(/\./g,''); }
+    var n=parseFloat(s);
+    return isNaN(n)?0:n;
   }
-  function fechaISO(s){
-    s=(s==null?'':s).toString().trim();
-    var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if(m){ var y=m[3].length===2?('20'+m[3]):m[3];
-      return y+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2); }
-    if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-    return '';
+  function ivaR(){ try{ if(typeof ivaRate==='function') return ivaRate(); }catch(e){} return 0.21; }
+  function setSel(id,v){
+    var el=document.getElementById(id);
+    if(el){ el.value=v; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){} }
+    return el;
   }
-  function matchProducto(desc, cat){
-    var dt=tokens(desc), best=-1, bestScore=0, second=0;
-    for(var i=0;i<cat.length;i++){
-      var ct=tokens(cat[i].nombre), score=0, seen={};
-      for(var j=0;j<dt.length;j++){
-        var w=dt[j];
-        if(seen[w]) continue; seen[w]=1;
-        if(ct.indexOf(w)>=0){ score += (/^\d/.test(w)? (w.length+2) : w.length); }
-      }
-      if(score>bestScore){ second=bestScore; bestScore=score; best=i; }
-      else if(score>second){ second=score; }
-    }
-    var conf = (bestScore>=7 && (bestScore-second)>=3) ? 'alta'
-             : (bestScore>=5 ? 'baja' : 'no');
-    return { idx:best, item:best>=0?cat[best]:null, score:bestScore, second:second, conf:conf };
-  }
-  function parseReporte(rows){
-    function val(r,c){ var row=rows[r]||[]; var v=row[c]; return v==null?'':v; }
-    function buscar(label){
-      var L=norm(label);
-      for(var r=0;r<rows.length;r++){
-        var a=norm(val(r,0));
-        if(a===L || a===L+':' || a.indexOf(L)===0){
-          for(var c=1;c<(rows[r]||[]).length;c++){ if(val(r,c)!=='') return (''+val(r,c)).trim(); }
-          return '';
-        }
-      }
-      return '';
-    }
-    var cli = {
-      cotizNro: buscar('Cotizacion Nro'),
-      cliente:  buscar('Cliente'),
-      idSap:    buscar('ID SAP'),
-      vendedor: buscar('Vendedor'),
-      fecha:    fechaISO(buscar('Fecha de Entrega')),
-      obs:      buscar('Observacion'),
-      referencia: buscar('Referencia')
-    };
-    var hRow=-1, cCod=-1, cDesc=-1, cCant=-1, cPU=-1, cUSD=-1;
-    for(var r=0;r<rows.length;r++){
-      var row=rows[r]||[];
-      for(var c=0;c<row.length;c++){
-        if(norm(row[c]).indexOf('descripcion')>=0){ hRow=r; }
-      }
-      if(hRow===r){
-        for(var c2=0;c2<row.length;c2++){
-          var t2=norm(row[c2]);
-          if(t2.indexOf('codigo')>=0) cCod=c2;
-          else if(t2.indexOf('descripcion')>=0) cDesc=c2;
-          else if(t2.indexOf('cantidad')>=0) cCant=c2;
-          else if(t2.indexOf('precio unitario')>=0) cPU=c2;
-          else if(t2==='total usd' || t2.indexOf('total usd')>=0) cUSD=c2;
-        }
-        break;
-      }
-    }
-    var lineas=[];
-    if(hRow>=0 && cDesc>=0){
-      for(var r3=hRow+1;r3<rows.length;r3++){
-        var desc=(''+val(r3,cDesc)).trim();
-        var cod=(''+val(r3,cCod>=0?cCod:0)).trim();
-        if(!desc && !cod) break;
-        if(!desc) continue;
-        if(norm(desc).indexOf('condicion de impuesto')>=0) break;
-        var cant=parseFloat((''+val(r3,cCant)).toString().replace(',','.'))||1;
-        lineas.push({
-          codigo: cod, desc: desc, cant: cant,
-          precioUnit: parseFloat(val(r3,cPU))||0,
-          totalUSD: cUSD>=0?(parseFloat(val(r3,cUSD))||0):0
-        });
-      }
-    }
-    return { cliente:cli, lineas:lineas };
+  function setChk(id,v){
+    var el=document.getElementById(id);
+    if(el){ el.checked=!!v; try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){} }
+    return el;
   }
 
-  /* ---------- utilidades de estado ---------- */
-  function getCat(){ try{ return JSON.parse(localStorage.getItem(LS_CAT)||'[]'); }catch(e){ return []; } }
-  function getEst(){ try{ return JSON.parse(localStorage.getItem(LS_EST)||'{}'); }catch(e){ return {}; } }
-  function setEst(e){ localStorage.setItem(LS_EST, JSON.stringify(e)); }
-  function setInput(id,v){
-    var el=document.getElementById(id); if(!el) return;
-    el.value=(v==null?'':v);
-    try{ el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
-  }
-
-  /* ---------- SheetJS lazy ---------- */
+  /* ---------- cargar SheetJS ---------- */
   function ensureXLSX(cb){
     if(window.XLSX) return cb();
-    var s=document.createElement('script'); s.src=SHEET_CDN;
+    var s=document.createElement('script');
+    s.src=SHEET_CDN;
     s.onload=function(){ cb(); };
-    s.onerror=function(){ alert('No se pudo cargar el lector de Excel (revisá tu conexión).'); };
+    s.onerror=function(){ alert('No se pudo cargar el lector de Excel. Revisá tu conexión a internet.'); };
     document.head.appendChild(s);
   }
 
-  /* ---------- estilos del modal ---------- */
+  /* ---------- parseo del Excel ----------
+     rows = matriz de strings (lo que se ve en Excel, raw:false)
+     Devuelve {lineas:[{desc,cant,lineTotal,usd}]}  (valores ARS, con IVA incluido en lineTotal)  */
+  function parseExcel(rows){
+    // fila de encabezado = primera que tenga una celda con "descripcion"
+    var hr=-1;
+    for(var r=0;r<rows.length;r++){
+      var row=rows[r]||[];
+      for(var c=0;c<row.length;c++){ if(norm(row[c]).indexOf('descripcion')>=0){ hr=r; break; } }
+      if(hr>=0) break;
+    }
+    if(hr<0) return {lineas:[]};
+    var hrow=rows[hr]||[];
+    // localizar columnas por nombre
+    var iDesc=-1,iCant=-1,iUnit=-1,iTotal=-1,iUSD=-1;
+    for(var c2=0;c2<hrow.length;c2++){
+      var t=norm(hrow[c2]);
+      if(t==='') continue;
+      if(iDesc<0 && t.indexOf('descripcion')>=0){ iDesc=c2; continue; }
+      if(iCant<0 && t.indexOf('cantidad')>=0){ iCant=c2; continue; }
+      if(iUSD<0 && t.indexOf('total')>=0 && t.indexOf('usd')>=0){ iUSD=c2; continue; }
+      if(iTotal<0 && (t==='total' || t==='total ars' || t==='total pesos')){ iTotal=c2; continue; }
+      if(iUnit<0 && t.indexOf('precio unitario')>=0){ iUnit=c2; continue; }
+    }
+    // fallbacks
+    if(iUnit<0){ for(var c3=0;c3<hrow.length;c3++){ if(norm(hrow[c3]).indexOf('precio')>=0){ iUnit=c3; break; } } }
+    if(iTotal<0){ for(var c4=hrow.length-1;c4>=0;c4--){ var tt=norm(hrow[c4]); if(tt.indexOf('total')>=0 && tt.indexOf('usd')<0){ iTotal=c4; break; } } }
+    var lineas=[];
+    for(var r2=hr+1;r2<rows.length;r2++){
+      var row2=rows[r2]||[];
+      var desc=(iDesc>=0?(''+(row2[iDesc]==null?'':row2[iDesc])):'').trim();
+      var any=false; for(var k=0;k<row2.length;k++){ if((''+(row2[k]==null?'':row2[k])).trim()!==''){ any=true; break; } }
+      if(!any) break;                                   // fila en blanco = fin
+      if(!desc) continue;
+      if(norm(desc).indexOf('condicion de impuesto')>=0) break;
+      var cant = iCant>=0 ? (parseNumAR(row2[iCant])||1) : 1;
+      var lineTotal = iTotal>=0 ? parseNumAR(row2[iTotal]) : 0;
+      if(!lineTotal && iUnit>=0){ lineTotal = parseNumAR(row2[iUnit]) * cant; } // sin col Total: unit*cant (asume incl. IVA)
+      var usd = iUSD>=0 ? parseNumAR(row2[iUSD]) : 0;
+      lineas.push({ desc:desc, cant:cant, lineTotal:lineTotal, usd:usd });
+    }
+    return {lineas:lineas};
+  }
+
+  /* ---------- cargar al carrito y exportar la presentación de siempre ---------- */
+  function cargar(parsed){
+    if(typeof items==='undefined'){ alert('No pude acceder al carrito del cotizador.'); return; }
+    // 1) preparar el cotizador: pesos argentinos, modo compra, incluir presentación, sin descuento manual
+    setSel('f_moneda','ars');
+    setSel('modo','compra');
+    setChk('swPres', true);
+    setChk('swVerDesc', false);
+    var descEl=document.getElementById('f_desc');
+    var descOld=descEl?descEl.value:'';
+    if(descEl) descEl.value='0';               // fuerza descuento 0 => totales exactos
+    var iva=ivaR();
+    // 2) vaciar carrito y cargar los renglones del Excel
+    items.length=0;
+    parsed.lineas.forEach(function(l){
+      var cant=l.cant||1;
+      var lineTot=l.lineTotal||0;              // total del renglón (ARS, con IVA)
+      var netoUnit=(lineTot/cant)/(1+iva);     // neto por unidad: neto*cant*(1+iva) == total del Excel
+      items.push({ nombre:l.desc, cat:'', neto:netoUnit, tipo:'mensual', qty:cant, moneda:'ars' });
+    });
+    // 3) render de la presentación completa (usa el motor propio del cotizador)
+    try{ if(typeof render==='function') render(); }catch(e){ alert('Error al armar la presentación: '+e.message); }
+    if(descEl) descEl.value=descOld;           // restaurar el descuento manual que hubiera
+    try{ if(typeof save==='function') save(); }catch(e){}
+    var doc=document.getElementById('doc');
+    if(doc) doc.scrollIntoView({behavior:'smooth', block:'start'});
+    mostrarBarra();
+  }
+
+  /* ---------- barra de imprimir (se oculta al imprimir) ---------- */
   function inyectarCSS(){
-    if(document.getElementById('cotz-imp-css')) return;
-    var st=document.createElement('style'); st.id='cotz-imp-css';
-    st.textContent = [
+    if(document.getElementById('cotzImpCSS')) return;
+    var st=document.createElement('style'); st.id='cotzImpCSS';
+    st.textContent=[
       '#cotzImpBtn{display:inline-flex;align-items:center;gap:6px;margin:8px 0;padding:9px 14px;',
-      'background:#0F4C81;color:#fff;border:none;border-radius:9px;font-weight:700;cursor:pointer;font-size:14px;}',
-      '#cotzImpBtn:hover{background:#0c3c66;}',
-      '#cotzOv{position:fixed;inset:0;background:rgba(15,30,50,.55);display:none;align-items:flex-start;',
-      'justify-content:center;z-index:99999;padding:24px;overflow:auto;}',
-      '#cotzOv.on{display:flex;}',
-      '.cotz-card{background:#fff;border-radius:16px;max-width:860px;width:100%;padding:22px 24px;',
-      'box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit;}',
-      '.cotz-card h2{margin:0 0 4px;font-size:20px;color:#0F4C81;}',
-      '.cotz-sub{color:#667;font-size:13px;margin:0 0 16px;}',
-      '.cotz-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:16px;}',
-      '.cotz-f label{display:block;font-size:12px;font-weight:700;color:#556;margin-bottom:3px;}',
-      '.cotz-f input{width:100%;padding:7px 9px;border:1px solid #cdd6e0;border-radius:8px;font-size:14px;box-sizing:border-box;}',
-      '.cotz-prod{border:1px solid #e3e8ef;border-radius:11px;padding:11px 12px;margin-bottom:9px;}',
-      '.cotz-prod .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;}',
-      '.cotz-desc{font-size:13px;color:#334;font-weight:600;}',
-      '.cotz-badge{font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;white-space:nowrap;}',
-      '.cb-alta{background:#e6f7ec;color:#137a3a;}.cb-baja{background:#fff4e0;color:#a86400;}.cb-no{background:#fde7e7;color:#b02525;}',
-      '.cotz-row{display:flex;gap:8px;align-items:center;}',
-      '.cotz-row select{flex:1;padding:7px 9px;border:1px solid #cdd6e0;border-radius:8px;font-size:13px;}',
-      '.cotz-row input.qty{width:64px;padding:7px 6px;border:1px solid #cdd6e0;border-radius:8px;font-size:13px;text-align:center;}',
-      '.cotz-qlbl{font-size:12px;color:#667;}',
-      '.cotz-btns{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}',
-      '.cotz-btns button{padding:10px 18px;border-radius:9px;font-weight:700;cursor:pointer;border:none;font-size:14px;}',
-      '.cotz-ok{background:#137a3a;color:#fff;}.cotz-ok:hover{background:#0f5f2d;}',
-      '.cotz-cancel{background:#eef1f5;color:#334;}.cotz-cancel:hover{background:#e2e6ec;}',
-      '.cotz-note{font-size:12px;color:#8a94a0;margin-top:10px;}'
+      'background:#0F4C81;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}',
+      '#cotzImpBtn:hover{background:#0c3c66}',
+      '#cotzPrintBar{position:fixed;top:12px;right:16px;z-index:99999;display:flex;gap:8px}',
+      '#cotzPrintBar button{padding:9px 14px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.2)}',
+      '#cotzPrintBar .p{background:#0F4C81;color:#fff}',
+      '#cotzPrintBar .x{background:#e5e7eb;color:#333}',
+      '@media print{#cotzPrintBar,#cotzImpBtn{display:none!important}}'
     ].join('');
     document.head.appendChild(st);
   }
-
-  /* ---------- construir el <option> del catálogo ---------- */
-  function optionsCat(cat, selIdx){
-    var h='<option value="-1">— (no cargar esta línea) —</option>';
-    for(var i=0;i<cat.length;i++){
-      h+='<option value="'+i+'"'+(i===selIdx?' selected':'')+'>'+
-         (cat[i].nombre||'').replace(/</g,'&lt;')+'</option>';
-    }
-    return h;
+  function mostrarBarra(){
+    if(document.getElementById('cotzPrintBar')) return;
+    var bar=document.createElement('div'); bar.id='cotzPrintBar';
+    bar.innerHTML='<button class="p">🖨️ Imprimir / Guardar PDF</button><button class="x">✕</button>';
+    bar.children[0].onclick=function(){ window.print(); };
+    bar.children[1].onclick=function(){ bar.remove(); };
+    document.body.appendChild(bar);
   }
 
-  /* ---------- pantalla de revisión ---------- */
-  function abrirRevision(data){
-    inyectarCSS();
-    var cat=getCat();
-    var ov=document.getElementById('cotzOv');
-    if(!ov){ ov=document.createElement('div'); ov.id='cotzOv'; document.body.appendChild(ov); }
-    var cli=data.cliente;
-    var prodHTML='';
-    data.lineas.forEach(function(l,i){
-      var m=matchProducto(l.desc, cat);
-      var badge = m.conf==='alta'?'<span class="cotz-badge cb-alta">✓ Detectado</span>'
-                : m.conf==='baja'?'<span class="cotz-badge cb-baja">⚠ Revisá</span>'
-                : '<span class="cotz-badge cb-no">✕ Sin match</span>';
-      prodHTML+=
-        '<div class="cotz-prod">'+
-          '<div class="top"><span class="cotz-desc">'+l.desc.replace(/</g,'&lt;')+'</span>'+badge+'</div>'+
-          '<div class="cotz-row">'+
-            '<select data-i="'+i+'" class="cotz-sel">'+optionsCat(cat, m.idx)+'</select>'+
-            '<span class="cotz-qlbl">Cant.</span>'+
-            '<input class="qty" data-i="'+i+'" type="number" min="1" value="'+(l.cant||1)+'">'+
-          '</div>'+
-        '</div>';
-    });
-    var obsVal = cli.referencia || cli.obs || '';
-    ov.innerHTML =
-      '<div class="cotz-card">'+
-        '<h2>Revisar antes de cargar</h2>'+
-        '<p class="cotz-sub">Reporte SAP Nro '+(cli.cotizNro||'—')+'. Confirmá los datos y los productos detectados.</p>'+
-        '<div class="cotz-grid">'+
-          '<div class="cotz-f"><label>Institución / Cliente</label><input id="ci_inst" value="'+esc(cli.cliente)+'"></div>'+
-          '<div class="cotz-f"><label>CUIT / ID</label><input id="ci_cuit" value="'+esc(cli.idSap)+'"></div>'+
-          '<div class="cotz-f"><label>Contacto</label><input id="ci_cont" value=""></div>'+
-          '<div class="cotz-f"><label>Localidad</label><input id="ci_loc" value=""></div>'+
-          '<div class="cotz-f"><label>Fecha</label><input id="ci_fecha" value="'+esc(cli.fecha)+'" placeholder="AAAA-MM-DD"></div>'+
-          '<div class="cotz-f"><label>Observación / Referencia</label><input id="ci_obs" value="'+esc(obsVal)+'"></div>'+
-        '</div>'+
-        '<div style="font-weight:800;color:#0F4C81;margin:6px 0 8px;">Productos ('+data.lineas.length+')</div>'+
-        prodHTML+
-        '<div class="cotz-note">Los productos con ⚠ o ✕ conviene revisarlos: elegí el correcto en la lista o dejá "no cargar".</div>'+
-        '<div class="cotz-btns">'+
-          '<button class="cotz-cancel" id="cotzCancel">Cancelar</button>'+
-          '<button class="cotz-ok" id="cotzOk">Cargar al cotizador</button>'+
-        '</div>'+
-      '</div>';
-    ov.classList.add('on');
-    document.getElementById('cotzCancel').onclick=function(){ ov.classList.remove('on'); };
-    document.getElementById('cotzOk').onclick=function(){ confirmarCarga(data, ov); };
-  }
-  function esc(s){ return (s==null?'':(''+s)).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-
-  /* ---------- vaciar carrito usando los botones rmItem de la app ---------- */
-  function rmBtns(){
-    return Array.prototype.filter.call(
-      document.querySelectorAll('button,[onclick]'),
-      function(b){ return /rmItem/.test(b.getAttribute('onclick')||''); });
-  }
-  function clearCart(){
-    var guard=0;
-    while(guard++<300){
-      var btns=rmBtns(); if(!btns.length) break;
-      try{ btns[btns.length-1].click(); }catch(e){ break; }
-    }
-  }
-
-  /* ---------- aplicar al cotizador usando SU propio mecanismo ---------- */
-  function confirmarCarga(data, ov){
-    var cat=getCat();
-    // 1) datos del cliente -> inputs del Punto 1 (la app sincroniza sola con input/change)
-    setInput('f_inst', document.getElementById('ci_inst').value.trim());
-    setInput('f_cuit', document.getElementById('ci_cuit').value.trim());
-    setInput('f_cont', document.getElementById('ci_cont').value.trim());
-    setInput('f_loc',  document.getElementById('ci_loc').value.trim());
-    setInput('f_fecha',document.getElementById('ci_fecha').value.trim());
-    setInput('f_obs',  document.getElementById('ci_obs').value.trim());
-    // 2) mapa: índice de catálogo (value de las opciones mod_N) -> {select, opción, fila ci}
-    var map={};
-    var mods=document.querySelectorAll('select[id^=mod_]');
-    for(var mi=0;mi<mods.length;mi++){
-      var sel=mods[mi]; var ci=sel.id.replace('mod_','');
-      for(var oi=0;oi<sel.options.length;oi++){ map[sel.options[oi].value]={sel:sel,oi:oi,ci:ci}; }
-    }
-    // 3) arrancar propuesta nueva: vaciar el carrito actual
-    clearCart();
-    // 4) agregar cada producto elegido por el camino real (addFrom lee mod_ci/qty_ci)
-    var sels=ov.querySelectorAll('.cotz-sel');
-    var qtys=ov.querySelectorAll('input.qty');
-    var added=0, faltan=[];
-    for(var i=0;i<sels.length;i++){
-      var gi=sels[i].value;
-      if(gi==='-1') continue;
-      var q=parseInt(qtys[i]?qtys[i].value:'1',10)||1;
-      var m=map[gi];
-      if(!m){ var it0=cat[parseInt(gi,10)]; faltan.push(it0?it0.nombre:gi); continue; }
-      m.sel.selectedIndex=m.oi;
-      var qEl=document.getElementById('qty_'+m.ci); if(qEl) qEl.value=q;
-      try{ window.addFrom(Number(m.ci)); added++; }catch(e){}
-    }
-    try{ if(typeof window.render==='function') window.render(); }catch(e){}
-    ov.classList.remove('on');
-    var extra = faltan.length ? (' No pude ubicar: '+faltan.join(', ')+'.') : '';
-    alert('Listo: datos del cliente + '+added+' producto(s) cargados.'+extra+' Revisá la propuesta.');
-  }
-
-  /* ---------- manejo del archivo ---------- */
+  /* ---------- leer el archivo ---------- */
   function onFile(file){
-    if(!file) return;
     ensureXLSX(function(){
       var rd=new FileReader();
       rd.onload=function(e){
         try{
-          var wb=window.XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-          var ws=wb.Sheets[wb.SheetNames[0]];
-          var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
-          var data=parseReporte(rows);
-          if(!data.lineas.length && !data.cliente.cliente){
-            alert('No pude leer el reporte. ¿Es el Excel de "ReporteCotizacion" exportado del sistema?');
+          var wb=XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+          var name=wb.SheetNames[0];
+          for(var i=0;i<wb.SheetNames.length;i++){
+            var n=norm(wb.SheetNames[i]);
+            if(n.indexOf('cotiz')>=0 || n.indexOf('pedido')>=0){ name=wb.SheetNames[i]; break; }
+          }
+          var ws=wb.Sheets[name];
+          var rows=XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+          var parsed=parseExcel(rows);
+          if(!parsed.lineas.length){
+            alert('No encontré productos en el Excel. Revisá que tenga una fila de encabezado con la columna "Descripción" y las filas de productos abajo.');
             return;
           }
-          abrirRevision(data);
+          cargar(parsed);
         }catch(err){ alert('Error leyendo el Excel: '+err.message); }
       };
       rd.readAsArrayBuffer(file);
@@ -2115,7 +1993,6 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
   function colocarBoton(){
     if(document.getElementById('cotzImpBtn')) return true;
     inyectarCSS();
-    // buscar el heading que contiene "Datos de la propuesta"
     var anchor=null, hs=document.querySelectorAll('h1,h2,h3,h4,legend,.paso,.step,.titulo');
     for(var i=0;i<hs.length;i++){
       if(norm(hs[i].textContent).indexOf('datos de la propuesta')>=0){ anchor=hs[i]; break; }
@@ -2140,7 +2017,6 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
 
   function init(){
     if(colocarBoton()) return;
-    // reintentar por si el Punto 1 se dibuja tarde
     var tries=0, iv=setInterval(function(){
       tries++;
       if(colocarBoton() || tries>20) clearInterval(iv);
@@ -2149,7 +2025,6 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
-
 </script>
 </body>
 </html>
