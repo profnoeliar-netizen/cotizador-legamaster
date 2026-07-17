@@ -1025,7 +1025,7 @@ function val(id){return (document.getElementById(id)||{}).value||"";}
 function renderDoc(t){
   const inst=val("f_inst")||"—", cuit=val("f_cuit"), cont=val("f_cont"), loc=val("f_loc"),
         fecha=val("f_fecha"), valid=val("f_valid")||"15",
-        kam=kamActual(), ase=kam.n, aseMail=kam.e,
+        kam=kamActual(), ase=(window.__impFirmante||kam.n), aseCargo=(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kam.cargo), aseMail=(window.__impFirmante?"":kam.e), aseTel=(window.__impFirmante?"":kam.tel),
         alum=Math.max(1,+val("f_alum")||1);
   const fFecha = fecha? new Date(fecha+"T00:00").toLocaleDateString("es-AR",{day:'2-digit',month:'long',year:'numeric'}) : "—";
   const pres = (document.getElementById("swPres").checked ? presentacionHTML() : "")
@@ -1091,15 +1091,15 @@ function renderDoc(t){
     ${ase?`<div class="firma">
       <div class="firma-line"></div>
       <div class="firma-nom">${ase}</div>
-      ${kam.cargo?`<div class="firma-cargo">${kam.cargo}</div>`:''}
-      <div class="firma-datos">${aseMail?`✉️ ${aseMail}`:''}${aseMail&&kam.tel?' · ':''}${kam.tel?`📞 ${kam.tel}`:''}</div>
+      ${aseCargo?`<div class="firma-cargo">${aseCargo}</div>`:''}
+      <div class="firma-datos">${aseMail?`✉️ ${aseMail}`:''}${aseMail&&aseTel?' · ':''}${aseTel?`📞 ${aseTel}`:''}</div>
       <div class="firma-emp">Legamaster Latinoamérica · empresa del grupo edding</div>
     </div>`:''}
     <div class="valid-hl">
       <span class="mark"><svg class="stroke" viewBox="0 0 340 46" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><filter id="edrough" x="-6%" y="-40%" width="112%" height="180%"><feTurbulence type="fractalNoise" baseFrequency="0.85 0.14" numOctaves="2" seed="9" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="8"/></filter></defs><g filter="url(#edrough)"><path d="M6 25 Q4 12 24 11 Q120 6 210 8 Q305 9 326 12 Q339 15 332 25 Q336 37 318 37 Q210 42 118 39 Q38 38 18 36 Q4 34 6 25 Z" fill="#E9F600" fill-opacity="0.85"/><path d="M12 31 Q120 35 205 33 Q292 32 324 31" stroke="#c6d200" stroke-width="3.4" stroke-opacity="0.5" fill="none" stroke-linecap="round"/><path d="M16 18 Q120 14 210 16 Q300 17 320 18" stroke="#ffffff" stroke-width="2.6" stroke-opacity="0.45" fill="none" stroke-linecap="round"/><path d="M18 24 Q160 22 300 24" stroke="#f6ff66" stroke-width="4.5" stroke-opacity="0.55" fill="none" stroke-linecap="round"/></g></svg><span class="t">Cotización válida por ${valid} días</span></span>
       <img class="edmark" src="${IMG.edmarker}" alt="marcador edding">
     </div>
-    <div class="doc-foot"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${ase?esc(ase)+(kam.cargo?' · '+esc(kam.cargo):''):""}</span></div>
+    <div class="doc-foot"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${ase?esc(ase)+(aseCargo?' · '+esc(aseCargo):''):""}</span></div>
   </div>`;
 
   document.getElementById("doc").innerHTML = colombianizar(pres + cotiz);
@@ -1423,7 +1423,7 @@ function presEscuelasHTML(){
       <div class="lg"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAACcCAMAAACQnYipAAAA/FBMVEX///+Ng3j/WgAAnnxJpySJf3SFe2//UwCflYyqo5wAmXbAubOAdWiHem/7+voAqIj/9u//TgDm8uClnJTOysUAlW8+pA7C6uPn5eO1r6j/fDcaspb/3Mr08vLz+fCx6N//ZgCNxnbX087e29iczIf/cAD/694ow62k2Mz/ZSH/0bbz/v0sngD/yKb/w6n/QQB24dj/eBCGzr5X28/b7dL/k03/fyXG4rje9/RDt5//wJn/t4r/hziv1Z1EyLX/kmz/oXj/iFuAv2VotUX/qnf/omlhu6V3vFn/m2xzZlf/mlxVqzag7ORrz78zpoiP4NT/eUP/t5z/poj/cSH7j3vGAAAerElEQVR4nO2dCXubxhaGwTYIGYStgm0pNokDiZ1avnWTZlGa1G32uGnTLP//v9xZEJrlnJkBWbbbR1/vbRMBw8A72zkzc/C8FkpHaToa0X+lbS5b6eYrHZVx5PthwhX6fhRXo+vO1UqXo1GeDQjUIPAbBUFAYA+yfAX5365RHCSJgFYSOeTHK8b/YpURTrdhHJXXnc2VOimNbXQbxvl153Wl9srd8DKtEP/rVAWJK12OOKiuO8sruauI3Gtv01BHxXVneyVHla3xUoXJqhL/O9Rv1zoLlbivJ5YSWe9Izrk91w9Et6HTbj9+9hg+0mj7aNvtIdtds729rT1Fmm7PdERlTWQymUzJP2k6ZX+aTFrnlKWhXZZOak3r/5iTKAYd+fq0J5ab6fTx3Q9vPnx4/fr1XUyvqT58eMO18enTp42Njd2NN3cfqxl7/HqX6PTTM7TAbJ/8eX9t7emvbRinvz65v3b48gQvhUe/vn359OHTpy+fNHrJ9PTp04cP798/pFpbI4m8QG48/fn8/Hh/f39ra2u9Fvnj1v7x8fnPe1NnztNfaCJEx4L2Z9piYmnv/2JIc3Rhap6DMAyNxxPR75Hunu620IYgQvKenLHHp/yE3dMPSNZPemfD3tra8Kx35PrOPO+QXtMbnh0ix4+enJ2RU4iGqnqN1qhIImfQjX9e3yHa3Nxcl0V+2aRHto5/dmE8OWaJ4BJS3tnZw5IpTXwDP+qP+5kfGk65ENweMrO2OpXq8O3TJrHTZ2DW353xF01e9dmJwxtjenhWX3P2FD5hODvBRb0z7frJ/o5KVgO9s7NvZTzZ3DEnI6e5g6SXXxiq5yDjo6hi7OOlILhoTOJnp4vw3diVaupv88R2P0FZPzkTX7RjHT6aXwRf8rQNX5LIr2oC+05cNne2fjEPVfYtxUTRzi9gKma+4+a8UWSo500dfr1QBSYgxay9ERODBloPh1JVciP8bs5v+A44vt2O79rwiZLAz671jiB+YMjopE39pckdQ6mUJr7JWDhzZKjDDeE3CwLeEG54W0xr9wcg84c98U33Dg1va66X81IxfAgcP1gUcIuKt7lzjLfTzgXFBLgy8Q0z6dzS1A/XI60rBby9JgFeO4MqpKb784t694Hjvw5VhO0AT1tR2VlHLZxfLgFwYXRvqF4MUyMdJMxaursYYKkPvi0dcQC85jTQEqo9WOfbAj57IV/fsmXd3LmDZLQtYKAPTgOj/eMrY4DYZC3zsxccZEmD5faAez0Hc/jSAav3bFvxMMKtAeutfWb0bwSRcnplPJ132BuLVOHdN+Ltbn9qC3htiBg+ou5fKuDe8K2aQEsuhDDcSrcFfK6lUJr9V0oXTAAbOmFKmA60fviE4rPqk+LOaA8YsFk0tQP8o0XftRtOJS6fP3/e2vo809ZnkPA6ONKSAX/eQsXT1htocwdMarAG2Fwg6m74meKYvEd1994bkdY9SL+pDDsAdrCV2gAevj04UXUgCrjbnuhfOp5Op3fu7O3tkf9OJ3t3pn/9fb6vEd4BDRwR8Ob53h1Ue1RAGcnMFVLvg3OLx3qglghR94TeeddwnqAOgB1spTaAz/7nllNR4igatFymd87Vigx2wyLgnZ/bZ8RSH/26zRVkGkXzCwyTh3dtXgtdbzoAXjvT+kRF1w6YaHKuNNL7wEmLAjaOoJlCeSrQ0gX7dGktfjuxBi8T8NrZgTnVhxbAL64AsOf99Vlyh0BVeEHAtvaW1Uhx2VVh8mRBF8jqAni3C+De0GwrLR3w1qYDYFIORMLQiQsCdlnBEQzyWTecFpFDiQhC1H3+21UBXhu+NKa6bMATN8CKxwswYhcD7FKBKbDxqKALNIo8sjbQVHgVvjrAa2c/mVK9KYBlX/POP9rxxQAPHJdgJX4/zvNxZJzzF0oE2gt3APyhI2CzrSRMQS0FsOcKWDxxfUd3UywE2OLjEJGFSRi2WC6NDaSvEDABZ5hofXpjAItVGBhHLwTYavF0lebfnOnZkgH/KDXShnklG+C3lwh4HTJ/GsnTElonfL4A4KL7IjubEmSp9JIBD9/eEl2MBlvp5gCWZo71UdYigI3zQgsCRoZZSwZ8dnAkLe/AbaUbBPhYBKxZwosAdjBpuwpro5cN+ERciwOss2gkrOgAJ/yvErAR4QKAjS10kI0RuRFG2ugOgF+3A+z9KDXSX5FUbxBgaTrhMgEbx9CoKZu61XvVg11LBLy7HMBHPWHQ1cO6YRvgdyJg57W4gm4A4L5xoc6CgMMxePWyAdO69kJspHv34W74BgGW+uC/1KPn4lHdD2KSkdSigAMfvPrxqZkWoLttAXvySPoPMNUbBFgaRWvLOroDNhtJiwL2E9DL0AWw5RLJTGKAt38UXR8wnic3FLBuJhnrt0mWtVV5WtSSSTkDBmO0XAlg70SylcANS60AW6YeQXV0dGiHz41GlEnmiYagH9ej5r7sdnQGDDYBVwPY+1MkDNpKNsB/Xhngf8Qxlu7U7Aw47Zsnhuh2QqYklq9zBRxDd70iwHZbyQb4yZUBllpofc2cBBjdOggodXVEdwQcAnvClz7IGs5WNx6IvTA0r3RjAN+Rpgt1gp0BGzcZXQJg2JfVAXAbM6kBLDkqIFupFeAWu44bOQIW543BRVk3FzBoJz1bMuD5BpIvZlupXQ0WAzYIOjDEbxDBbaEPNz2XKjDgyJD74CkudfxdujqiuwIGJ/0lwFqsBlAdAR9J08RaK/tUWNEB7S4UAfdefvuD6ePHj69ePXny8tb37/fvk/8d3v/+51ek/XYCLPMFJgtlwJv757VoDIfnPILDOv//80dK9c6XDNgfQIbw1QGW9yb01pSa1gbwWk+P4LBWx3AYng3hpUHihD/SRE+mxxLfnb+Bk0TA62D4hvpPO5vyGDv+rwNWbKVXcnasgJFlIrqQOUkr4On0kbSkcn0TrOjH0jkmKdEb/ps1WFzvrji05O1DlwcYcXTJgCdzeZTtdPrgXI3hsQn6qdwBK57MZffBlwa43YoO8Yjs0BpKnaUN8MsWgMGtbhLgvQdz7e09ePT38b4WfGfzPfj4bQBLVnTpyLczYOsg69RtFC0BBiagcMDK5P93sSm9SsBQ36lh24H5dgd8/WbSaYcVHTbAyjI73FYSl+wsCtjWRDvBeY+E6WgDWLKyiiV7sm4E4IM1bF7p5eUBHoJ+kHaAN99jQTraAJYMpTS7DlflFQNWJv8FW8kWZcd5kNU7+whmuw3gzXWs/rYBvPNcujAdO+1C6Q4YnGxYEDC0jEsC/Kd69JVsKzW/2wC/k2cccf34CvZluQPeXH/+CH98I2CxT99SGoHUbV9SZ8DwoqwOgG2B0CTA2szgkWwrNU6JJzbAYvi8L69E/S7qDywAqivgzfV91QclSQL8XNJ7UY/+URuB0ZIBgxP+Vw7Y+x9sK7UCfCB5oLdFodl2Bfz+kXmZhgh4k8dpoGIBIfbmjmigiXfd19AVMJjdqwfsfZQa6Zmt9KdlkCUA1tycTnIFbJsgEgAjYVpQufHtCBhZdLcoYOC4BBjYFLx9S2qkv/Ff39kAD68G8KYpTiWVCHirHWDLko7FADssm3V0dCwKWJ78n9lK7yzThRJgp3wqcgW8aanCCwB23DzaDTCygfS3awCs2EqHzGy1ARab8EOnfCqSpgsfyZIIb5kD8UuA22XBsRPuCBi+ZxfAG+6Ae3CMO8mhNWR261v3Cf+FAauzSZO/xVlC8+7hRQB7jvEYugDW4uPVWgJgaWYfBqxM/lPf8QsLwGUC9qZSrOEdYze8CGA3S7gTYGRrUhfAG20AQ+Mlov9JjTRdKH2tgL2/pJkI40h6fwHAbm10N8BI9IQOgD+1AIw00Z73u9RIf9leOuCJecJfbqT3Dd3wIoCtYQw7A4Yd0Z4C2G0+2ApYjCqJxU5SJv9fiAt6QIAvlwt4IjfSeuyVRgsBtscx7AgYdmN5iwMGGgYJMLrhW5r8XxseCF/yAIO1LBmwd0cOcYd3wwsBdtrj3wEwGoNlYcCAb8QNsPeHNPn/RRxFHwKOjGUD9h5JjfQ6uillMcAupnAHwHg40vaApYjvVsB4eLttyVaSNj5AnqqlA5YbabwbXgywSxVuDzhEK/A1AlYm/3sWwLYgLTZZAXt3JF8XtmJnUcAOVbg9YEM8YQkw/B0zRZcG2PsV+VIOCNgW6tAmO2BpWyHaDU8WBOzg7GgNGHNyUN27RsDy5P/1A/aey8uiQWtYSqcLYPuscGvA6BDaWxgwtGTHHfDRIbgOBwRsCxhukwvgvS17N7wwYG9sI9wWMLwxuFYHwLuXBlj6yuENAKw20lA3vDhga4TvloBD9RsPkpYN2PJBnY8QYQhwKn5XCZqMsMkJsPfc2g1PttYd0jHK5u1QAVs+AjAwfu79mgFv3wK64d6avu51+2oAT+VGeku3hqVPA3QDbAtZqQIetDlb1b3dSwd80AKwdzIEPtECRGnZFs2o5QFWHFqb+9qM/sSyP9xFSLSOOOeKlSAss99z6LKwb/4YrhiP4fQ3l9y1A4zMJs31Qm+ke8DK9XToCDil28K9be2pp26AvfeWDaQTczRp8czpdOrBn40fAbZS4BdeWkt5pNmvwGxjGCFhhGdqD/iH00sFnH7RGmkIsCcCPvxJ19eZvn37449v376q21dcAcuNtL5ESwK89cCgR4/evyf/An2elf7tdu17WLp0wGFksJCYpIgqHWowMMMoAgbXz8mSJ/95sTADXls7lKS18L3hsHdL2QY+dR393lmXAG8p1rD7V0xn699Bh0mpEe4COPSNAyyq9oC9SwYMOLSsgOW9DOrlPA2lI5+Ko1+jeSPNOmjdcNsPgOtFhEsj3AGwA98ugE8vGbD3u0rYCthFyrfWpNGvEbA866DGo2wNGIq1RaUSJn2wTXmo8EWW6YiStuvfs5/vtQTsMuDVHFoQ4JZfeNdu7Q5Y+o6ldnJ7wFiPX6ojLSwgeCN5e2IY2esvAbyxVMBDJ4tGdWhBgLFPueCAD6Xr29ivciOtBJxtyxcvTpXyoejAKvHsJHPhK4+inexgr9Uo2uHT0ETfJMLgF8Oftm2jFcCOdjCXtMFMiXYmN+CLAPZGY/cPIykKkrFt/MzVYdGd9DFxaG+SMOzR9gcjkjeVQh3327ZttFq2BDDwh4EFSbMOSg0+bz3KwotTkevmkpNCP7fYvzOJVq3j94OFSr/7ATpBWHzhGtn5SHRZgp9kOGoLWI3UIYCxh3kWAlaqfO60BWyMGl5mjh+vk6pvmDkMr2p9anC5+TmkMgE36idnsyo8PHTNxsH3GeHe2e+gvfDtDDGIkAqsLuyag3HZUvRoFlJJX531fqdVIw24O0WN4taVmFRft+aZ6fHGLkW8u3t6z2qH1Xq2Sy4h/+zu/gbvR/zaG/Koc4fuYWEPbg2HPRrCbu0rHGp0++st6sEYmnb3NxoOv2htx6NZHDpgCkHT5BF3VOzsa36K6aMtIEgPpp1jy2a2tBoHbRCHwdhpdNXo8b0PG58+vbn3zG3zKNUzeskuuQQpEts/fft+eHh461ub0PsHX18dHn5/9fUE2xu6ffDT14/ffn/15cstm159AyJWTh6cH2+tb+2/dwoRO3lAToY3+0/2HpCkjvcddHz+wH63oiSIHSPpELylY+/b6PZjKrcBVnPJM/KP4ZLtg5OTk4N223i3j8glaLDY+pTtowMXwalM2V588+bBudjJSPM6me65CZ5sUEUQ+w4D6iDx49Z4V7oRKqo4GoSGqf0gCAdRXK3w/muVjso4CkIIMmmYwyCKy5HrKGmlm6l0VOXjiFbWGnNQ/zEa59VoVXn/C0qLUVXG8bgfcfXHcVwSuKu6+19SQTATVfRf5M/XnZ2VVlpppZVWWmmllVZaaaWVVlpppZVWWmmllVZaaaWVrkbqpF9KN//aT2t+b7YOqzuI4XRcswEc026ApQ88kts9i6rMY6I8L6uRMff0NPB4apOXzrZ16buuwWylhmOWzFCNsizK+orGubrMKo8y7ayZspydMs60U8irqtymjStD+v0xloVxnJf6ooM0E3NC/zx/2iiLZr+T5KSloEVOfqMb7liAGfJSxjm+GokuJQUXko7xx6jfFXmOKJtlUfhjk105wlgazQGRPwE3LdDMsKNVlWdJvc8oCZOE/p88X9SX9imMSNEOQn5WSM9iIn+gV3EAoyqPQ/GUMAlZQnFpZ1xUee7X2WiSp0nQv0ezLOS+lIWQrvuMMm1NJ3mk/iytASljI+k2ETuUZLnEr6DLVsJkQJIjRX5Ask5XrUTIYn4aswaOlhyFLHv8GcL584TsUYJw7I3y+atMMpK9Jk/sWUm2sKdJ+mCRozt4kc+fcKVFHYFlQGoueYtxNqAJ+pEUSiVN60+VBhGpN1zkVPKOm8TTYjSYncKOxvRNkV/qOm5UmhZ8p2LgC+mPg8H84zwkC5FwCkk/C2gR87Ox8txpUYdnHKgtbX2bcFxIByqC10+ifMRbz4q+crpkFMk4i0wSQPWbJBMMspjFMCnZhwODuGRRTsZ+/a5IFupXWeeCPFdevzgf6hnSgiYUJCXcGvIdocY1GDwqUhKzboH0EVVMfwgCJRwh3+xN39lMRTEiiIXTWFEJ/FlC/E1RBC77HnjAvbCU0qeb4eancG7haJb+iDc/fqSRYEUBLNj0Non8Pkr6wpN8/gLTIk/YT/D7Yq8UPDjww6yadbBs83Q48upHyeevlG+rDpu3Un9jEIuhXoZ46KIRnpm5WIkUHjplIVlmje9MLPq/Gga6iBLhF8ZIvIzUpYA1dy47l1gHOFDSHydCnIFUzUJaVFHC6rSSFitqcERUkh35ISrOVx7OjEimkZfKo4qB8XQHYgiaOGAVQkhyFsKTUZFykaEF0mPlIciQji4O0cwoJ0lvlse+kwOasehYWiEbiQBYGQjl0sQLi+/QTNNap8URLwZCW8hC7ClZoEWAMFNYMAgh2HBEatvEEtXeLXkw5IVHfNNHojeL6UAM0snqaSD+MKsMhfYqK6j2zHOMB/+s1zHDjzqTDrh+QfKrpB2F/sXYKFFqmAKYFxbSvZhywERLsdov0LooXAkA9tI+JawWKxxwFsgp8Mqu0yqTAARcJEFEyyJQv9NEzL4GOJ3FeOR1RUqdV2Eww6S+o6Oost5+Ym6jAcA8THggtQsw4FxtQkO1OeYv29yIUMGAC18FrGah4EMGCZEBcBRIr6sIscYxSsCgyHGYVHkCfpqxuBDfswbYyxIRsFTMyhCoG7Mb4uG3szDMKT7z64UA99nAywGwuIgWBlzXEXOAQw8D7ImDRxAwH3vJIarNgMVXyzMHnVkl4FsjgxPeF+kXFbFYynTA1Szr+qvkpRS6YUp/R3rgIgwGaYU0QXNBgIGGCwYs5QUGnDIrILQtp0YAi4IB8zGz9L5NgOW6w6s/eLcB9HOV0KIUAX2Fp7iadMCNEQS8SrSgEX5o5ciZEYO8FSFtFLB0v86AeUBqaxXuDrjUOgFnwNrAX8o2lMuQtpf8jsa8AoAbAa+SNwpAG01sHLR6ktaorF8vXEa5wCY6vLwazN8i8jnhuboDZveVPobpDJiXPdiKK6CeL2GWXGq4bKZ2gLkRAbyj0B9gQ6xRSOOJ1oXUsAkfG2QFLoMsURhgj7tSLG10d8B8DCq+b2fAkV6QjcoTXt0z68imLeAS7kppC41ZIOOQZ4Z1GIY3BwAuHM0kOT8o4DHW/oiCACuuOwxwrmbXGTCzMgbuE19RwBnYRzZtAXsJOJzPQmSEQF2QNXven+I5AQDzFlpGBeQqlZ2gKOASKC+aIMCKvx8DXPcBqfyDA+BUvdAiagTzPwWwKSyoLeBsAPXrIX6XcubHZY4TQ/3RAefsXkqHAAG+kPKPAnbqhCHAiRtg/hHVpD3gkcmDBIgYwfV7tI5sWgMGu1LSNqHtBBnv1Wn0MRtrlmsFcM68HGrTDw39HAHzUdBAPyDlFwB8IT8vahConbwrYMhjZ9J8RIuYwoLaAmYPoXalmud8rmKemdI8kpAAp0WeseqgZQ3IVT9xBMy+8mCxhAHAuStgPns0v7Mr4BLu+DCRRrG5FnKbSmoNONZtL1KM0LH6OJxP1QagP71JmOWkyumSFbquISC1dxBrNJRcpV7RD1wBM88nvvCASQWcFrHaYqGAuSt33gu5AuZTes41mAyxmgzxgZ2h924NGDCFSUeADZ5SsQFhc8+oXR6LYc/IyCwZRDkQXoX5o6ImlHA/0tqoxQELIYz7Gc2LI2A2KBSOuAKOlevMIkOsRPiLxRRuDRgwhQO89I3E4XUFTfM0agCz/wY5suSMAQ7CQa1Q8w/igAFnoi4GOBg06dMbtAKctK/BMTrVAGlmBNcJmUc2HQBrpvDIYAT3Q7GyGzPD++CiKDgGrJ4NWBps4SHVmM6LXjbgwBfSHyTOgNX5jFZNtMW7ItxeeoTSMsxqDzhV/aZ93AguZA9mjD+wMMgyWzMDbvkJK2qiUJ5vugTAmbD0tBgnroBVT0qrQZYr4FEiv26DG5uqPeB6tVfz1zTErds8CXTnO5KZ+Sg6C33cfNdzlfoXbQC3HGR5dJTuCpgvcGv+3spMcrWD5UZx1vGjp3cAXMmNQmkwgsl4r5T/7qsT+I3mgIvE4DQGclU5Aq4HWU41WFThaiZ1HUW7TYNw0fokPa7Fyd8BMDeFm+xFuBHsqcPrHPA9ziTYwbk+d27KVeoKmNnBg9aAXT1ZWgvRCrDJjSuIGMGaF8I049AFsORVpkawoYVW1qYx5yOcGdHREeDjLAiwax/MPVlmly8E2HcE7Ct9vPNkw8Blnqu5RyTvVGCmR4I9VRfAku1FaKOJB3BmYF+SCNjQZkG5krNv8UVbujoIcOE2m8RbCDdftLzoLlInGlGRd083LUgKNM+EoC6A+czfbD7DD1AjGMiMj46fJFdlH119scB8cOfZJEXGyQaxWDqvyYqdfZVjMmyNFfnIJD1TJ8Csj+Ql1WwEB5mWGbRqyr7oBKvqCwDuPB+sCAOsFSAOGOxpyPBTSKFymQZhCoHXnZtM4U6A0/mbMhjBHjS85k4b6Jnl2SR0nLUAYH/JKzq4I0t4tgq3u2XAfHTg0AlXCfC6U1P97wRYcFcaFtuVCVBVcVNYmS4MkJfTHbDWgoJaAHCojnZGA2ysmCqbyvAuSZZSLmZXG0zhboBHs0aBtEoXWLmDN8ZxUwIYlimAsXFWd8CxSwu9AGDAXYFnVvF/1nveLHmjjwY1CCPDjEM3wB7b9jY2GsEFPLyusMyoE/5Ioe4OmD0pOuKfqTtg1gPIaw9Q53uhkgqcxtEx1Ch6HAcCoiNgVhsGrERhmYoT+JaYraIC1lehmnI1EqaIYcBOQywUcNqfN1QwYF5y5TE6MHnOlaul382ZNUB2C8fzUa92p26A6za6NBjBIcK+j4z59CU74DgLqT7ZvCQY9iY5uAMRwLHgLYOzMAAaCNSNqLd8Lr1whb3uEX5xR8C8PYoi3G9gzgyQrr7oDvRnIXuThB084O5CztfaQNeA9YcSHwbc6Qk00PUjAKkBa2DSC+MsKc9baNjbifg6bYAxt0DOKwRuBCu7qwTxXb/aq+YGlPgzhyJbh8CeR3axABgqzhXrpbT3D+YbquhVIrQQPjAfwZyNF8iON40a3WurvoDqwrcQNiyNwnfWsdcKU4JfZS3eQ/oB5iEvtGlyOTN6Jcz0nPARt/Qqte31TJXogQcsMfbJ6cQyE8zFi5/6ayKUs1Rv7GMeTQN44AFUtWLQuMwvcDcfU6ZOJM2FT1fg+xZTbYe/fLfAmB2ojEqZ0bxUPItSy1qPs8R7lMDFKXkIAXAsn5KWY/76+y4Ly+u1zTKqkmJqrq7kU9IqDhOafgS9xdEFa4XE9FIy3AMrRslb6UEpJdQMH+l90T6G5QmixadIoXpameew6sNIpWCZQa4s6szIeR3zJVmyN4ezSsbNqUUdCSYYN87PcUbf77w/4OWH1nxyMOv7YTIIggR+/bp4CB2SHItRwyLTZAEpIEJ2/WCWfkkORiyOE0kfi3Z0wehnNI4T/V81DklFRIYnPi+KYTTORxXRiH68MRGeC7Vq6renEe7XB4DBdx1lBzUJTaNS4/K6OjPzSCFplcfzAFVZLpRgHuYpScZxQYNUZUkTTksQ+zt7cnZKIJzC40MNMpcvCxdlPsbTj8BT6vSjGE8/jXgkLzrpwwJWkf+hEx7l7DwW4IpHuoroc8V1GKuEfspPvoYc9Od5GjePWtDX2qxklD4BWJCieVFfk9AwXlB5o+N6qGCImcnNmcn4VyVHLFhZI3GjYhXUP5I7jQfiWYoCVoGyIJB/zvrkuRw/G01bf/wGrACRoaWcfESjiNm+nZjmmU/DkIUsOJmf5abzR33SJjTnRn0WwS0TH0ttbzP5mZt2enwhfu+RvPD5GDBP5IcDZ89HF2EItTT0fhkXuTI3HIyCgWPD+a9Xmo6q0h5+kmtE41WWldO5yxTtoRZP5f93gsYtz6gd+QAAAABJRU5ErkJggg==" alt="Itinere Red Educativa"></div>
     </div>
     <div class="weblink"><a href="https://www.legamaster.com/es/home">🌐 Conocé toda la línea en la web oficial · www.legamaster.com</a></div>
-    <div class="doc-foot" style="margin-top:26px"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${esc(kamActual().n)}${kamActual().cargo?` · ${esc(kamActual().cargo)}`:''}${kamActual().e?` · ${esc(kamActual().e)}`:''}</span></div>
+    <div class="doc-foot" style="margin-top:26px"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${esc(window.__impFirmante||kamActual().n)}${(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kamActual().cargo)?` · ${esc(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kamActual().cargo)}`:''}${(window.__impFirmante?"":kamActual().e)?` · ${esc(window.__impFirmante?"":kamActual().e)}`:''}</span></div>
   </div>`;
 }
 
@@ -1479,7 +1479,7 @@ function presEmpresasHTML(){
     <div class="doc-title">Tecnología con servicio, pensada para tu empresa</div>
     <p style="font-size:13px">Acompañamos a tu organización durante todo el contrato: instalación, capacitación, soporte técnico en 72 hs hábiles y renovación tecnológica incluida, bajo un modelo DaaS en pesos sin gran inversión inicial.</p>
     <div class="weblink"><a href="https://www.legamaster.com/es/home">🌐 Conocé toda la línea en la web oficial · www.legamaster.com</a></div>
-    <div class="doc-foot" style="margin-top:26px"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${esc(kamActual().n)}${kamActual().cargo?` · ${esc(kamActual().cargo)}`:''}${kamActual().e?` · ${esc(kamActual().e)}`:''}</span></div>
+    <div class="doc-foot" style="margin-top:26px"><span>Legamaster Latinoamérica · empresa del grupo edding · ${APP_VERSION}</span><span>${esc(window.__impFirmante||kamActual().n)}${(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kamActual().cargo)?` · ${esc(window.__impFirmante?(window.__impFirmanteCargo||"Vendedor"):kamActual().cargo)}`:''}${(window.__impFirmante?"":kamActual().e)?` · ${esc(window.__impFirmante?"":kamActual().e)}`:''}</span></div>
   </div>`;
 }
 
@@ -1876,7 +1876,7 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
       for(var c=0;c<row.length;c++){ if(norm(row[c]).indexOf('descripcion')>=0){ hr=r; break; } }
       if(hr>=0) break;
     }
-    if(hr<0) return {lineas:[]};
+    if(hr<0) return {lineas:[], hr:-1};
     var hrow=rows[hr]||[];
     // localizar columnas por nombre
     var iDesc=-1,iCant=-1,iUnit=-1,iTotal=-1,iUSD=-1;
@@ -1901,22 +1901,129 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
       if(!desc) continue;
       if(norm(desc).indexOf('condicion de impuesto')>=0) break;
       var cant = iCant>=0 ? (parseNumAR(row2[iCant])||1) : 1;
-      var lineTotal = iTotal>=0 ? parseNumAR(row2[iTotal]) : 0;
-      if(!lineTotal && iUnit>=0){ lineTotal = parseNumAR(row2[iUnit]) * cant; } // sin col Total: unit*cant (asume incl. IVA)
+      // PRIORIDAD: columna "Total" del Excel (es el total real del renglón en los
+      // reportes SAP e ya incluye impuestos; es la fuente de verdad verificada).
+      // Sólo si no hay columna Total se usa Precio Unitario × Cantidad como respaldo.
+      var unit = iUnit>=0 ? parseNumAR(row2[iUnit]) : 0;
+      var totCol = iTotal>=0 ? parseNumAR(row2[iTotal]) : 0;
+      var lineTotal = totCol>0 ? totCol : (unit>0 ? unit*cant : 0);
       var usd = iUSD>=0 ? parseNumAR(row2[iUSD]) : 0;
       lineas.push({ desc:desc, cant:cant, lineTotal:lineTotal, usd:usd });
     }
-    return {lineas:lineas};
+    return {lineas:lineas, hr:hr};
+  }
+
+  /* ---------- parseo de la CABECERA (datos del cliente/vendedor) ----------
+     Lee las filas arriba del encabezado de productos. Cada fila trae
+     una etiqueta en la col 0 ("Cliente:", "Vendedor:", ...) y el valor en la col 1.
+     Devuelve {cliente,vendedor,fecha,referencia,observacion,domicilio,cuit}  */
+  function parseCabecera(rows, hr, rowsRaw){
+    var cab={cliente:'',vendedor:'',fecha:'',referencia:'',observacion:'',domicilio:'',destinatario:'',cuit:''};
+    var lim = hr>0 ? hr : Math.min(rows.length, 30);
+    // valor (texto): primera celda no vacía a la derecha de la etiqueta
+    function val(row, from){
+      for(var c=from; c<row.length; c++){
+        var v=(''+(row[c]==null?'':row[c])).trim();
+        if(v!=='') return v;
+      }
+      return '';
+    }
+    // valor CRUDO (para fechas: puede ser número de serie o Date real, sin formato de Excel)
+    function valRaw(r, from){
+      var row = rowsRaw && rowsRaw[r] ? rowsRaw[r] : null;
+      if(!row) return null;
+      for(var c=from; c<row.length; c++){
+        var x=row[c];
+        if(x!=null && (''+x).trim()!=='') return x;
+      }
+      return null;
+    }
+    for(var r=0;r<lim;r++){
+      var row=rows[r]||[];
+      var lab=norm(row[0]);
+      if(!lab) continue;
+      if(lab.indexOf('datos del')>=0) continue;   // fila de título de sección, no es un campo
+      var v=val(row,1);
+      if(!cab.cliente && lab.indexOf('cliente')>=0) cab.cliente=v;
+      else if(!cab.vendedor && lab.indexOf('vendedor')>=0) cab.vendedor=v;
+      else if(!cab.fecha && (lab.indexOf('fecha de entrega')>=0 || lab==='fecha' || lab.indexOf('fecha:')>=0)){
+        var fr=valRaw(r,1); cab.fecha=(fr!=null && fr!=='')?fr:v;   // preferir el valor crudo
+      }
+      else if(!cab.referencia && lab.indexOf('referencia')>=0) cab.referencia=v;
+      else if(!cab.observacion && lab.indexOf('observacion')>=0) cab.observacion=v;
+      else if(!cab.destinatario && lab.indexOf('destinatario')>=0) cab.destinatario=v; // persona que recibe
+      else if(!cab.domicilio && lab.indexOf('domicilio')>=0) cab.domicilio=v; // toma el primero (Solicitante)
+      // CUIT/CUIL: sólo si trae dígitos de verdad (mín. 8 números)
+      else if(!cab.cuit && (lab.indexOf('cuit')>=0 || lab.indexOf('cuil')>=0)){
+        var soloNum=(v||'').replace(/\D/g,'');
+        if(soloNum.length>=8) cab.cuit=v;
+      }
+    }
+    return cab;
+  }
+
+  // convierte la fecha del Excel a "YYYY-MM-DD" para el input date.
+  // Soporta: número de serie de Excel, Date real, "14/07/2026", "7/18/26" y "2026-07-18".
+  function fechaISO(v){
+    if(v==null || v==='') return '';
+    // número de serie de Excel -> ISO sin ambigüedad (usa SheetJS)
+    if(typeof v==='number' && window.XLSX && window.XLSX.SSF){
+      try{ return window.XLSX.SSF.format('yyyy-mm-dd', v); }catch(e){}
+    }
+    // objeto Date real
+    if(v instanceof Date && !isNaN(v)){
+      return v.getUTCFullYear()+'-'+('0'+(v.getUTCMonth()+1)).slice(-2)+'-'+('0'+v.getUTCDate()).slice(-2);
+    }
+    var s=(''+v).trim();
+    // ya viene ISO (2026-07-18 o 2026-07-18 00:00:00)
+    var iso=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(iso) return iso[1]+'-'+iso[2]+'-'+iso[3];
+    // formato con barras: D/M/AAAA o M/D/AA
+    var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if(m){
+      var a=+m[1], b=+m[2], y=m[3]; if(y.length===2) y='20'+y;
+      var d, mo;
+      if(a>12){ d=a; mo=b; }          // el primero >12 => es el día (DD/MM)
+      else if(b>12){ d=b; mo=a; }     // el segundo >12 => es el día (MM/DD, formato SheetJS)
+      else { d=a; mo=b; }             // ambiguo => asumir DD/MM (formato argentino)
+      return y+'-'+('0'+mo).slice(-2)+'-'+('0'+d).slice(-2);
+    }
+    return '';
+  }
+  function setTxt(id,v){
+    var el=document.getElementById(id);
+    if(el && v!=null){ el.value=v; try{ el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){} }
+    return el;
   }
 
   /* ---------- cargar al carrito y exportar la presentación de siempre ---------- */
-  function cargar(parsed){
+  function cargar(parsed, fileName, cab){
     if(typeof items==='undefined'){ alert('No pude acceder al carrito del cotizador.'); return; }
+    cab=cab||{};
     // 1) preparar el cotizador: pesos argentinos, modo compra, incluir presentación, sin descuento manual
     setSel('f_moneda','ars');
     setSel('modo','compra');
     setChk('swPres', true);
     setChk('swVerDesc', false);
+    // 1.b) datos de cabecera del Excel (cliente / fecha / contacto / domicilio / observaciones / cuit)
+    if(cab.cliente) setTxt('f_inst', (''+cab.cliente).trim());
+    var fISO=fechaISO(cab.fecha); if(fISO) setTxt('f_fecha', fISO);
+    if(cab.destinatario) setTxt('f_cont', (''+cab.destinatario).trim());   // Persona de contacto
+    if(cab.domicilio) setTxt('f_loc', (''+cab.domicilio).trim());
+    // Observaciones para el PDF = Observación + Referencia del Excel (sin perder ninguna)
+    var obsPartes=[];
+    if(cab.observacion && (''+cab.observacion).trim()) obsPartes.push((''+cab.observacion).trim());
+    if(cab.referencia && (''+cab.referencia).trim()) obsPartes.push((''+cab.referencia).trim());
+    if(obsPartes.length) setTxt('f_obs', obsPartes.join(' · '));
+    if(cab.cuit) setTxt('f_cuit', (''+cab.cuit).trim());       // sólo viene si es un CUIT real
+    // firma: que firme el vendedor del Excel (override sobre el KAM del cotizador)
+    if(cab.vendedor && cab.vendedor.trim()){
+      window.__impFirmante = cab.vendedor.trim();
+      window.__impFirmanteCargo = 'Vendedor';
+    } else {
+      window.__impFirmante = '';
+      window.__impFirmanteCargo = '';
+    }
     var descEl=document.getElementById('f_desc');
     var descOld=descEl?descEl.value:'';
     if(descEl) descEl.value='0';               // fuerza descuento 0 => totales exactos
@@ -1935,10 +2042,14 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
     try{ if(typeof save==='function') save(); }catch(e){}
     var doc=document.getElementById('doc');
     if(doc) doc.scrollIntoView({behavior:'smooth', block:'start'});
-    mostrarBarra();
+    try{
+      var tot=0; parsed.lineas.forEach(function(l){ tot+=(l.lineTotal||0); });
+      var totTxt=tot.toLocaleString('es-AR',{minimumFractionDigits:0});
+      console.log('[Importador] '+parsed.lineas.length+' productos de '+(fileName||'Excel')+' — Total $'+totTxt);
+    }catch(e){}
   }
 
-  /* ---------- barra de imprimir (se oculta al imprimir) ---------- */
+  /* ---------- estilo del botón Cargar Excel ---------- */
   function inyectarCSS(){
     if(document.getElementById('cotzImpCSS')) return;
     var st=document.createElement('style'); st.id='cotzImpCSS';
@@ -1946,21 +2057,9 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
       '#cotzImpBtn{display:inline-flex;align-items:center;gap:6px;margin:8px 0;padding:9px 14px;',
       'background:#0F4C81;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px}',
       '#cotzImpBtn:hover{background:#0c3c66}',
-      '#cotzPrintBar{position:fixed;top:12px;right:16px;z-index:99999;display:flex;gap:8px}',
-      '#cotzPrintBar button{padding:9px 14px;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.2)}',
-      '#cotzPrintBar .p{background:#0F4C81;color:#fff}',
-      '#cotzPrintBar .x{background:#e5e7eb;color:#333}',
-      '@media print{#cotzPrintBar,#cotzImpBtn{display:none!important}}'
+      '@media print{#cotzImpBtn{display:none!important}}'
     ].join('');
     document.head.appendChild(st);
-  }
-  function mostrarBarra(){
-    if(document.getElementById('cotzPrintBar')) return;
-    var bar=document.createElement('div'); bar.id='cotzPrintBar';
-    bar.innerHTML='<button class="p">🖨️ Imprimir / Guardar PDF</button><button class="x">✕</button>';
-    bar.children[0].onclick=function(){ window.print(); };
-    bar.children[1].onclick=function(){ bar.remove(); };
-    document.body.appendChild(bar);
   }
 
   /* ---------- leer el archivo ---------- */
@@ -1977,12 +2076,16 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
           }
           var ws=wb.Sheets[name];
           var rows=XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+          // versión CRUDA: las fechas quedan como número de serie / Date (sin formato de Excel),
+          // así la fecha sale bien aunque el Excel la muestre en formato yankee (7/18/26).
+          var rowsRaw=XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
           var parsed=parseExcel(rows);
           if(!parsed.lineas.length){
-            alert('No encontré productos en el Excel. Revisá que tenga una fila de encabezado con la columna "Descripción" y las filas de productos abajo.');
+            alert('⚠️ No pude leer productos de "'+(file.name||'este archivo')+'".\n\nNO cambié nada: lo que ves en pantalla sigue siendo lo de antes.\n\nRevisá que el Excel tenga una fila de encabezado con la columna "Descripción" y los productos debajo.');
             return;
           }
-          cargar(parsed);
+          var cab=parseCabecera(rows, parsed.hr, rowsRaw);
+          cargar(parsed, file.name, cab);
         }catch(err){ alert('Error leyendo el Excel: '+err.message); }
       };
       rd.readAsArrayBuffer(file);
@@ -2026,5 +2129,6 @@ buildAddRows(); renderKAMs(); restore(); paintLista(); applyRoles(); render();
   else init();
 })();
 </script>
+
 </body>
 </html>
